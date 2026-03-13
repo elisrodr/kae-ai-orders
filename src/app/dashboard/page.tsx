@@ -78,7 +78,7 @@ export default async function DashboardPage() {
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
-    const { data: ordersData, error: ordersError } = await supabase
+    const { data: ordersData } = await supabase
       .from("orders")
       .select(
         `

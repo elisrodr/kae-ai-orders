@@ -85,7 +85,6 @@ export function TabsTrigger({
           : "text-muted-foreground hover:text-foreground",
         className
       )}
-      aria-selected={isActive}
       {...props}
     />
   );
