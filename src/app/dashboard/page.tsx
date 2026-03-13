@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,6 +10,41 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Package, Plus } from "lucide-react";
+
+type DashboardOrder = {
+  id: string;
+  status: string;
+  requested_delivery_date: string | null;
+  created_at: string;
+  vendor_name: string | null;
+  item_count: number;
+};
+
+function getStatusBadgeClasses(status: string) {
+  switch (status) {
+    case "sent":
+      return "border-transparent bg-blue-100 text-blue-800";
+    case "confirmed":
+      return "border-transparent bg-emerald-100 text-emerald-800";
+    case "issue":
+      return "border-transparent bg-amber-100 text-amber-800";
+    case "fulfilled":
+      return "border-transparent bg-muted text-muted-foreground";
+    default:
+      return "border-transparent bg-slate-100 text-slate-800";
+  }
+}
+
+function formatDate(value: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -33,20 +69,227 @@ export default async function DashboardPage() {
         .order("name")
     : { data: [] };
 
+  let recentOrders: DashboardOrder[] = [];
+  let totalThisMonth = 0;
+  let awaitingConfirmation = 0;
+
+  if (restaurantId) {
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const { data: ordersData, error: ordersError } = await supabase
+      .from("orders")
+      .select(
+        `
+          id,
+          status,
+          requested_delivery_date,
+          created_at,
+          vendors ( name )
+        `
+      )
+      .eq("restaurant_id", restaurantId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    // #region agent log
+    // eslint-disable-next-line no-console
+    console.log("recentOrders raw data:", ordersData, ordersError);
+    await fetch("http://127.0.0.1:7450/ingest/f2c6a6de-f035-4b2b-89b4-ca09a6f1e006", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "da5480",
+      },
+      body: JSON.stringify({
+        sessionId: "da5480",
+        runId: "pre-fix",
+        hypothesisId: "H1",
+        location: "src/app/dashboard/page.tsx:ordersQuery",
+        message: "Orders query result before mapping",
+        data: {
+          hasData: !!ordersData,
+          isArray: Array.isArray(ordersData),
+          hasError: !!ordersError,
+          errorMessage: ordersError?.message ?? null,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    recentOrders = ((ordersData ?? []) as any[]).map((row) => ({
+      id: row.id,
+      status: row.status,
+      requested_delivery_date: row.requested_delivery_date,
+      created_at: row.created_at,
+      vendor_name: row.vendors?.name ?? null,
+      item_count: 0,
+    }));
+
+    const { data: statsData } = await supabase
+      .from("orders")
+      .select("id, status, created_at")
+      .eq("restaurant_id", restaurantId)
+      .gte("created_at", monthStart.toISOString());
+
+    // #region agent log
+    await fetch("http://127.0.0.1:7450/ingest/f2c6a6de-f035-4b2b-89b4-ca09a6f1e006", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Debug-Session-Id": "da5480",
+      },
+      body: JSON.stringify({
+        sessionId: "da5480",
+        runId: "pre-fix",
+        hypothesisId: "H2",
+        location: "src/app/dashboard/page.tsx:statsQuery",
+        message: "Stats query result before aggregation",
+        data: {
+          hasData: !!statsData,
+          isArray: Array.isArray(statsData),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    totalThisMonth = (statsData ?? []).length;
+    awaitingConfirmation = (statsData ?? []).filter(
+      (o: { status: string }) => o.status === "sent"
+    ).length;
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Manage your vendors and place orders.</p>
+          <p className="text-muted-foreground">
+            Review your recent orders and manage your vendors.
+          </p>
         </div>
-        <Button asChild size="lg" className="w-full sm:w-auto">
-          <Link href="/dashboard/order">
+        <Button
+          asChild
+          size="lg"
+          className="w-full sm:w-auto text-base font-semibold px-6 py-3 shadow-sm"
+        >
+          <Link href="/dashboard/orders/new">
             <Plus className="mr-2 h-4 w-4" />
             Place New Order
           </Link>
         </Button>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>This month</CardDescription>
+            <CardTitle className="text-3xl font-bold">
+              {totalThisMonth}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Orders placed so far this month.
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Awaiting confirmation</CardDescription>
+            <CardTitle className="text-3xl font-bold">
+              {awaitingConfirmation}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Orders with status &quot;sent&quot;.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Orders</CardTitle>
+          <CardDescription>
+            The 10 most recent orders you&apos;ve sent.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {recentOrders.length === 0 ? (
+            <p className="py-6 text-center text-muted-foreground">
+              You haven&apos;t placed any orders yet. Use{" "}
+              <span className="font-semibold">Place New Order</span> to get
+              started.
+            </p>
+          ) : (
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b text-xs uppercase text-muted-foreground">
+                    <th className="px-4 py-2 text-left font-medium">
+                      Vendor
+                    </th>
+                    <th className="px-4 py-2 text-left font-medium">
+                      Items
+                    </th>
+                    <th className="px-4 py-2 text-left font-medium">
+                      Status
+                    </th>
+                    <th className="px-4 py-2 text-left font-medium">
+                      Requested delivery
+                    </th>
+                    <th className="px-4 py-2 text-left font-medium">
+                      Created
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentOrders.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="group relative cursor-pointer border-b last:border-0 hover:bg-muted/40"
+                    >
+                      <td className="px-4 py-3 align-middle">
+                        <div className="font-medium">
+                          {order.vendor_name ?? "Unknown vendor"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        {order.item_count}
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <Badge
+                          className={getStatusBadgeClasses(order.status)}
+                        >
+                          {order.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        {formatDate(order.requested_delivery_date)}
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        {formatDate(order.created_at)}
+                      </td>
+                      <td className="absolute inset-0">
+                        <Link
+                          href={`/dashboard/orders/${order.id}`}
+                          className="block h-full w-full"
+                          aria-label="View order details"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -55,13 +298,15 @@ export default async function DashboardPage() {
             Your vendors
           </CardTitle>
           <CardDescription>
-            Vendors you added during onboarding. Use &quot;Place New Order&quot; to order from them.
+            Vendors you added during onboarding. Use &quot;Place New Order&quot;
+            to order from them.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {(!vendors || vendors.length === 0) ? (
-            <p className="text-muted-foreground py-6 text-center">
-              No vendors yet. You can add more from your profile or when placing an order.
+          {!vendors || vendors.length === 0 ? (
+            <p className="py-6 text-center text-muted-foreground">
+              No vendors yet. You can add more from your profile or when
+              placing an order.
             </p>
           ) : (
             <ul className="divide-y rounded-md border">
@@ -80,7 +325,11 @@ export default async function DashboardPage() {
                   </div>
                   {v.website && (
                     <a
-                      href={v.website.startsWith("http") ? v.website : `https://${v.website}`}
+                      href={
+                        v.website.startsWith("http")
+                          ? v.website
+                          : `https://${v.website}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm text-primary hover:underline"

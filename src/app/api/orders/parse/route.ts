@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [
         {
           role: "user",
@@ -153,9 +153,14 @@ Respond ONLY with valid JSON in this exact format, no markdown, no backticks, no
       );
     }
 
+    const cleaned = responseText
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
     let parsed: unknown;
     try {
-      parsed = JSON.parse(responseText);
+      parsed = JSON.parse(cleaned);
     } catch {
       return NextResponse.json(
         { error: "Could not parse order. Try rewording your request." },
