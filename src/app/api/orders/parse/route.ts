@@ -64,7 +64,8 @@ export async function POST(request: Request) {
           .order("name")
       : { data: [] };
 
-    const vendorIds = vendors.map((v) => v.id);
+    const safeVendors = vendors ?? [];
+    const vendorIds = safeVendors.map((v) => v.id);
 
     const { data: regularItems = [] } =
       vendorIds.length > 0
@@ -74,11 +75,13 @@ export async function POST(request: Request) {
             .in("vendor_id", vendorIds)
         : { data: [] };
 
-    const vendorData = vendors.map((v) => ({
+    const safeRegularItems = regularItems ?? [];
+
+    const vendorData = safeVendors.map((v) => ({
       id: v.id,
       name: v.name,
       categories: [] as string[],
-      products: regularItems
+      products: safeRegularItems
         .filter((ri) => ri.vendor_id === v.id)
         .map((ri) => ({
           name: ri.name,
