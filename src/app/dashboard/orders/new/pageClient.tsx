@@ -179,7 +179,6 @@ export function NewOrderPageClient({ vendors }: { vendors: Vendor[] }) {
         setSubmitError(data?.error ?? "Could not send orders. Please try again.");
         return;
       }
-      const vendorCount = data?.vendorCount ?? 0;
       const orderIds: string[] = Array.isArray(data?.orderIds) ? data.orderIds : [];
 
       let emailSuccessCount = 0;

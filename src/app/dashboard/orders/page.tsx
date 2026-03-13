@@ -11,32 +11,6 @@ type OrdersPageOrder = {
   item_count: number;
 };
 
-function getStatusBadgeClasses(status: string) {
-  switch (status) {
-    case "sent":
-      return "border-transparent bg-blue-100 text-blue-800";
-    case "confirmed":
-      return "border-transparent bg-emerald-100 text-emerald-800";
-    case "issue":
-      return "border-transparent bg-amber-100 text-amber-800";
-    case "fulfilled":
-      return "border-transparent bg-muted text-muted-foreground";
-    default:
-      return "border-transparent bg-slate-100 text-slate-800";
-  }
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 export default async function OrdersPage() {
   const supabase = await createClient();
   const {
