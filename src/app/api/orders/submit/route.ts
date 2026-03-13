@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 
     let vendorCount = 0;
 
-    for (const [vendorId, group] of itemsByVendor.entries()) {
+    for (const [vendorId, group] of Array.from(itemsByVendor.entries())) {
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
