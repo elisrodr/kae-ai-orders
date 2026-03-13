@@ -178,7 +178,7 @@ export default async function DashboardPage() {
           <CardHeader className="pb-2">
             <CardDescription>Total Vendors</CardDescription>
             <CardTitle className="text-3xl font-bold">
-              {vendors.length}
+              {vendors?.length ?? 0}
             </CardTitle>
           </CardHeader>
           <CardContent>
