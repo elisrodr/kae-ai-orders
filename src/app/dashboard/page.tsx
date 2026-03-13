@@ -92,7 +92,7 @@ export default async function DashboardPage() {
       )
       .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(5);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recentOrders = ((ordersData ?? []) as any[]).map((row) => {
@@ -138,7 +138,7 @@ export default async function DashboardPage() {
         <Button
           asChild
           size="lg"
-          className="w-full sm:w-auto text-base font-semibold px-6 py-3 shadow-sm"
+          className="w-full sm:w-auto text-base font-semibold px-6 py-3 shadow-lg"
         >
           <Link href="/dashboard/orders/new">
             <Plus className="mr-2 h-4 w-4" />
@@ -147,10 +147,10 @@ export default async function DashboardPage() {
         </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>This month</CardDescription>
+            <CardDescription>Orders This Month</CardDescription>
             <CardTitle className="text-3xl font-bold">
               {totalThisMonth}
             </CardTitle>
@@ -174,83 +174,92 @@ export default async function DashboardPage() {
             </p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Vendors</CardDescription>
+            <CardTitle className="text-3xl font-bold">
+              {vendors.length}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Unique vendors you have a relationship with.
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Recent Orders</CardTitle>
           <CardDescription>
-            The 10 most recent orders you&apos;ve sent.
+            The 5 most recent orders you&apos;ve placed.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {recentOrders.length === 0 ? (
             <p className="py-6 text-center text-muted-foreground">
-              You haven&apos;t placed any orders yet. Use{" "}
-              <span className="font-semibold">Place New Order</span> to get
-              started.
+              No orders yet — place your first order to get started!
             </p>
           ) : (
-            <div className="overflow-x-auto -mx-4 sm:mx-0">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b text-xs uppercase text-muted-foreground">
-                    <th className="px-4 py-2 text-left font-medium">
-                      Vendor
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium">
-                      Items
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium">
-                      Status
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium">
-                      Requested delivery
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium">
-                      Created
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentOrders.map((order) => (
-                    <tr
-                      key={order.id}
-                      className="group relative cursor-pointer border-b last:border-0 hover:bg-muted/40"
-                    >
-                      <td className="px-4 py-3 align-middle">
-                        <div className="font-medium">
-                          {order.vendor_name ?? "Unknown vendor"}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        {order.item_count}
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <Badge
-                          className={getStatusBadgeClasses(order.status)}
-                        >
-                          {order.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        {formatDate(order.requested_delivery_date)}
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        {formatDate(order.created_at)}
-                      </td>
-                      <td className="absolute inset-0">
-                        <Link
-                          href={`/dashboard/orders/${order.id}`}
-                          className="block h-full w-full"
-                          aria-label="View order details"
-                        />
-                      </td>
+            <>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-xs uppercase text-muted-foreground">
+                      <th className="px-4 py-2 text-left font-medium">
+                        Vendor
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        Status
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        Delivery date
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {recentOrders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="group relative cursor-pointer border-b last:border-0 hover:bg-muted/40"
+                      >
+                        <td className="px-4 py-3 align-middle">
+                          <div className="font-medium">
+                            {order.vendor_name ?? "Unknown vendor"}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          <Badge
+                            className={getStatusBadgeClasses(order.status)}
+                          >
+                            {order.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          {formatDate(order.requested_delivery_date)}
+                        </td>
+                        <td className="absolute inset-0">
+                          <Link
+                            href={`/dashboard/orders/${order.id}`}
+                            className="block h-full w-full"
+                            aria-label="View order details"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Link
+                  href="/dashboard/orders"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  View all orders
+                </Link>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

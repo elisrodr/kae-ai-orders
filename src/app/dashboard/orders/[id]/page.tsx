@@ -13,6 +13,8 @@ import { ResendEmailButton } from "./ResendEmailButton";
 
 function getStatusBadgeClasses(status: string) {
   switch (status) {
+    case "draft":
+      return "border-transparent bg-slate-200 text-slate-800";
     case "sent":
       return "border-transparent bg-blue-100 text-blue-800";
     case "confirmed":
@@ -20,7 +22,7 @@ function getStatusBadgeClasses(status: string) {
     case "issue":
       return "border-transparent bg-amber-100 text-amber-800";
     case "fulfilled":
-      return "border-transparent bg-muted text-muted-foreground";
+      return "border-transparent bg-violet-100 text-violet-800";
     default:
       return "border-transparent bg-slate-100 text-slate-800";
   }
@@ -34,6 +36,19 @@ function formatDate(value: string | null) {
     year: "numeric",
     month: "short",
     day: "numeric",
+  });
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -69,12 +84,15 @@ export default async function OrderDetailPage({ params }: OrderDetailParams) {
         status,
         requested_delivery_date,
         created_at,
+        updated_at,
+        restaurant_id,
         raw_input,
         vendors ( name ),
         order_items ( item_name, quantity, unit )
       `
     )
     .eq("id", params.id)
+    .eq("restaurant_id", restaurantProfile.id)
     .single();
 
   // Log for debugging 404s / data issues
@@ -96,15 +114,36 @@ export default async function OrderDetailPage({ params }: OrderDetailParams) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
+        <Link
+          href="/dashboard/orders"
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          ← Back to Orders
+        </Link>
+        <div className="flex items-center gap-3">
+          {order.status === "draft" && (
+            <ResendEmailButton orderId={order.id} />
+          )}
+          <Badge
+            className={`px-3 py-1 text-sm ${getStatusBadgeClasses(
+              order.status
+            )}`}
+          >
+            {order.status}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Order details</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {vendorName}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Review the items and context for this order.
+            Requested for {formatDate(order.requested_delivery_date)} · Placed
+            on {formatDateTime(order.created_at)}
           </p>
         </div>
-        <Badge className={getStatusBadgeClasses(order.status)}>
-          {order.status}
-        </Badge>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -134,7 +173,14 @@ export default async function OrderDetailPage({ params }: OrderDetailParams) {
                   </thead>
                   <tbody>
                     {items.map((item, idx) => (
-                      <tr key={idx} className="border-b last:border-0">
+                      <tr
+                        key={idx}
+                        className={
+                          idx % 2 === 0
+                            ? "border-b last:border-0 bg-white"
+                            : "border-b last:border-0 bg-muted/40"
+                        }
+                      >
                         <td className="px-4 py-3 align-middle">
                           {item.item_name}
                         </td>
@@ -148,6 +194,9 @@ export default async function OrderDetailPage({ params }: OrderDetailParams) {
                     ))}
                   </tbody>
                 </table>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Total items: <span className="font-medium">{items.length}</span>
+                </p>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -159,18 +208,22 @@ export default async function OrderDetailPage({ params }: OrderDetailParams) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Order metadata</CardTitle>
+            <CardTitle>Activity</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Created</span>
-              <span>{formatDate(order.created_at)}</span>
+              <span className="text-muted-foreground">Order placed</span>
+              <span>{formatDateTime(order.created_at)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">
-                Requested delivery
+              <span className="text-muted-foreground">Email sent</span>
+              <span>
+                {order.status === "sent" ||
+                order.status === "confirmed" ||
+                order.status === "fulfilled"
+                  ? formatDateTime((order as any).updated_at ?? null)
+                  : "Not yet sent"}
               </span>
-              <span>{formatDate(order.requested_delivery_date)}</span>
             </div>
           </CardContent>
         </Card>
