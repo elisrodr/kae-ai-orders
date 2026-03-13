@@ -79,13 +79,13 @@ export default async function OrderDetailPage({ params }: OrderDetailParams) {
   if (!order) {
     notFound();
   }
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const items = (order as any).order_items as {
     item_name: string;
     quantity: number;
     unit: string;
   }[];
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vendorName = (order as any).vendors?.name ?? "Unknown vendor";
 
   return (

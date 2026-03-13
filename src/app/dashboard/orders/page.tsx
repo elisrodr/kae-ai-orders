@@ -106,7 +106,8 @@ export default async function OrdersPage() {
     }
   ).catch(() => {});
   // #endregion
-
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const orders: OrdersPageOrder[] = ((ordersData ?? []) as any[]).map(
     (row) => ({
       id: row.id,

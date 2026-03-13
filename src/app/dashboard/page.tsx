@@ -118,7 +118,7 @@ export default async function DashboardPage() {
       }),
     }).catch(() => {});
     // #endregion
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recentOrders = ((ordersData ?? []) as any[]).map((row) => ({
       id: row.id,
       status: row.status,
