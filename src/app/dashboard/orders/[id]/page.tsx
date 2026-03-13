@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ResendEmailButton } from "./ResendEmailButton";
 
 function getStatusBadgeClasses(status: string) {
   switch (status) {
@@ -60,7 +61,7 @@ export default async function OrderDetailPage({ params }: OrderDetailParams) {
     redirect("/onboarding");
   }
 
-  const { data: order } = await supabase
+  const { data: order, error: orderError } = await supabase
     .from("orders")
     .select(
       `
@@ -69,12 +70,16 @@ export default async function OrderDetailPage({ params }: OrderDetailParams) {
         requested_delivery_date,
         created_at,
         raw_input,
-        vendors!orders_vendor_id_fkey ( name ),
+        vendors ( name ),
         order_items ( item_name, quantity, unit )
       `
     )
     .eq("id", params.id)
     .single();
+
+  // Log for debugging 404s / data issues
+  // eslint-disable-next-line no-console
+  console.log("[OrderDetailPage] params.id:", params.id, "orderError:", orderError, "order:", order);
 
   if (!order) {
     notFound();
@@ -196,9 +201,14 @@ export default async function OrderDetailPage({ params }: OrderDetailParams) {
         </CardContent>
       </Card>
 
-      <div>
+      <div className="flex items-center justify-between">
+        <div>
+          {order.status === "draft" && (
+            <ResendEmailButton orderId={order.id} />
+          )}
+        </div>
         <Link
-          href="/dashboard"
+          href="/dashboard/orders"
           className="text-sm font-medium text-primary hover:underline"
         >
           ← Back to Orders

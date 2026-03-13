@@ -155,6 +155,7 @@ export function NewOrderPageClient({ vendors }: { vendors: Vendor[] }) {
     setIsSubmitting(true);
     setSubmitError(null);
     try {
+      showToast("Sending orders to your vendors...", "success");
       const res = await fetch("/api/orders/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -179,7 +180,48 @@ export function NewOrderPageClient({ vendors }: { vendors: Vendor[] }) {
         return;
       }
       const vendorCount = data?.vendorCount ?? 0;
-      showToast(`Orders sent to ${vendorCount} vendor${vendorCount === 1 ? "" : "s"}!`, "success");
+      const orderIds: string[] = Array.isArray(data?.orderIds) ? data.orderIds : [];
+
+      let emailSuccessCount = 0;
+      let emailFailCount = 0;
+
+      // Send emails sequentially to avoid rate limiting
+      for (const orderId of orderIds) {
+        try {
+          const emailRes = await fetch("/api/emails/send-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId }),
+          });
+          const emailData = await emailRes.json();
+          if (emailRes.ok && emailData?.success) {
+            emailSuccessCount += 1;
+          } else {
+            emailFailCount += 1;
+          }
+        } catch (e) {
+          console.error("[NewOrderPageClient] email send failed", e);
+          emailFailCount += 1;
+        }
+      }
+
+      if (emailSuccessCount > 0 && emailFailCount === 0) {
+        showToast(
+          `Orders sent to ${emailSuccessCount} vendor${emailSuccessCount === 1 ? "" : "s"}!`,
+          "success"
+        );
+      } else if (emailSuccessCount > 0 && emailFailCount > 0) {
+        showToast(
+          `${emailSuccessCount} of ${emailSuccessCount + emailFailCount} orders sent. Some emails failed — you can retry from your orders page.`,
+          "error"
+        );
+      } else {
+        showToast(
+          "Emails couldn't be sent. Your orders are saved — try resending from your orders page.",
+          "error"
+        );
+      }
+
       router.push("/dashboard/orders");
     } catch (err) {
       console.error(err);

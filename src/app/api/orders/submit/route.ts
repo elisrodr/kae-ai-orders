@@ -69,15 +69,24 @@ export async function POST(request: Request) {
     }
 
     let vendorCount = 0;
+    const createdOrderIds: string[] = [];
 
     for (const [vendorId, group] of Array.from(itemsByVendor.entries())) {
+      console.log(
+        "[api/orders/submit] creating order for vendor",
+        vendorId,
+        "with",
+        group.items.length,
+        "items"
+      );
+
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
           restaurant_id: restaurantProfile.id,
           vendor_id: vendorId,
           requested_delivery_date: delivery_date,
-          status: "sent",
+          status: "draft",
           raw_input: raw_input ?? null,
         })
         .select("id")
@@ -88,25 +97,36 @@ export async function POST(request: Request) {
         continue;
       }
 
+      console.log("[api/orders/submit] created order", order.id);
+
       vendorCount += 1;
+      createdOrderIds.push(order.id);
 
       const lineItems = group.items.map((item) => ({
         order_id: order.id,
         item_name: item.item_name,
         quantity: item.quantity,
         unit: item.unit,
-        needs_clarification: item.needs_clarification,
-        clarification_answer: item.clarification_answer,
-        no_vendor_match: item.no_vendor_match,
-        estimated_category: item.estimated_category,
       }));
 
-      const { error: itemsError } = await supabase
+      console.log(
+        "[api/orders/submit] inserting line items for order",
+        order.id,
+        lineItems
+      );
+
+      const { data: insertedItems, error: itemsError } = await supabase
         .from("order_items")
-        .insert(lineItems);
+        .insert(lineItems)
+        .select("id");
 
       if (itemsError) {
         console.error("[api/orders/submit] order_items insert failed", itemsError);
+      } else {
+        console.log(
+          "[api/orders/submit] order_items insert succeeded",
+          insertedItems
+        );
       }
     }
 
@@ -117,7 +137,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, vendorCount });
+    return NextResponse.json({ success: true, vendorCount, orderIds: createdOrderIds });
   } catch (err) {
     console.error("[api/orders/submit]", err);
     return NextResponse.json(

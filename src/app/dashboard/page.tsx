@@ -86,75 +86,39 @@ export default async function DashboardPage() {
           status,
           requested_delivery_date,
           created_at,
-          vendors ( name )
+          vendors ( name ),
+          order_items ( count )
         `
       )
       .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false })
       .limit(10);
 
-    // #region agent log
-    // eslint-disable-next-line no-console
-    console.log("recentOrders raw data:", ordersData, ordersError);
-    await fetch("http://127.0.0.1:7450/ingest/f2c6a6de-f035-4b2b-89b4-ca09a6f1e006", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "da5480",
-      },
-      body: JSON.stringify({
-        sessionId: "da5480",
-        runId: "pre-fix",
-        hypothesisId: "H1",
-        location: "src/app/dashboard/page.tsx:ordersQuery",
-        message: "Orders query result before mapping",
-        data: {
-          hasData: !!ordersData,
-          isArray: Array.isArray(ordersData),
-          hasError: !!ordersError,
-          errorMessage: ordersError?.message ?? null,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recentOrders = ((ordersData ?? []) as any[]).map((row) => ({
-      id: row.id,
-      status: row.status,
-      requested_delivery_date: row.requested_delivery_date,
-      created_at: row.created_at,
-      vendor_name: row.vendors?.name ?? null,
-      item_count: 0,
-    }));
+    recentOrders = ((ordersData ?? []) as any[]).map((row) => {
+      const orderItems = Array.isArray(row.order_items)
+        ? row.order_items
+        : [];
+      const aggregatedCount =
+        orderItems.length > 0 && typeof orderItems[0]?.count === "number"
+          ? orderItems[0].count
+          : orderItems.length;
+
+      return {
+        id: row.id,
+        status: row.status,
+        requested_delivery_date: row.requested_delivery_date,
+        created_at: row.created_at,
+        vendor_name: row.vendors?.name ?? null,
+        item_count: aggregatedCount,
+      };
+    });
 
     const { data: statsData } = await supabase
       .from("orders")
       .select("id, status, created_at")
       .eq("restaurant_id", restaurantId)
       .gte("created_at", monthStart.toISOString());
-
-    // #region agent log
-    await fetch("http://127.0.0.1:7450/ingest/f2c6a6de-f035-4b2b-89b4-ca09a6f1e006", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "da5480",
-      },
-      body: JSON.stringify({
-        sessionId: "da5480",
-        runId: "pre-fix",
-        hypothesisId: "H2",
-        location: "src/app/dashboard/page.tsx:statsQuery",
-        message: "Stats query result before aggregation",
-        data: {
-          hasData: !!statsData,
-          isArray: Array.isArray(statsData),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
 
     totalThisMonth = (statsData ?? []).length;
     awaitingConfirmation = (statsData ?? []).filter(
