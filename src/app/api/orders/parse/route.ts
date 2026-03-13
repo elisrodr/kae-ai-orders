@@ -1,4 +1,4 @@
-import Anthropic, { TextBlock } from "@anthropic-ai/sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -140,15 +140,13 @@ Respond ONLY with valid JSON in this exact format, no markdown, no backticks, no
       ],
     });
 
-    const textBlock = response.content.find(
-      (block): block is TextBlock =>
-        // SDK content blocks are discriminated by `type`
-        (block as { type?: unknown }).type === "text"
-    );
+    const responseText = response.content
+      .filter((block) => block.type === "text")
+      .map((block) => (block.type === "text" ? block.text : ""))
+      .join("")
+      .trim();
 
-    const rawText = textBlock?.text.trim() ?? "";
-
-    if (!rawText) {
+    if (!responseText) {
       return NextResponse.json(
         { error: "Could not parse order. Try rewording your request." },
         { status: 500 }
@@ -157,7 +155,7 @@ Respond ONLY with valid JSON in this exact format, no markdown, no backticks, no
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(rawText);
+      parsed = JSON.parse(responseText);
     } catch {
       return NextResponse.json(
         { error: "Could not parse order. Try rewording your request." },
