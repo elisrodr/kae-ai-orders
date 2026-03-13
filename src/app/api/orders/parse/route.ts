@@ -140,10 +140,14 @@ Respond ONLY with valid JSON in this exact format, no markdown, no backticks, no
       ],
     });
 
-    const textBlock = response.content.find(
-      (block): block is { type: "text"; text: string } => block.type === "text"
-    );
-    const rawText = textBlock?.text?.trim() ?? "";
+    const textBlock = response.content.find((block) => {
+      return typeof (block as any)?.type === "string" && (block as any).type === "text";
+    }) as any;
+
+    const rawText =
+      textBlock && typeof textBlock.text === "string"
+        ? textBlock.text.trim()
+        : "";
 
     if (!rawText) {
       return NextResponse.json(
