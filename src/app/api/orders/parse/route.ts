@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Anthropic, { TextBlock } from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -140,14 +140,13 @@ Respond ONLY with valid JSON in this exact format, no markdown, no backticks, no
       ],
     });
 
-    const textBlock = response.content.find((block) => {
-      return typeof (block as any)?.type === "string" && (block as any).type === "text";
-    }) as any;
+    const textBlock = response.content.find(
+      (block): block is TextBlock =>
+        // SDK content blocks are discriminated by `type`
+        (block as { type?: unknown }).type === "text"
+    );
 
-    const rawText =
-      textBlock && typeof textBlock.text === "string"
-        ? textBlock.text.trim()
-        : "";
+    const rawText = textBlock?.text.trim() ?? "";
 
     if (!rawText) {
       return NextResponse.json(
